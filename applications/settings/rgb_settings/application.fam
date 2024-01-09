@@ -1,0 +1,9 @@
+App(
+    appid="rgb_led_settings",
+    name="RGB Settings",
+    apptype=FlipperAppType.SETTINGS,
+    entry_point="rgb_settings_app",
+    requires=["notification"],
+    stack_size=1 * 1024,
+    order=15,
+)

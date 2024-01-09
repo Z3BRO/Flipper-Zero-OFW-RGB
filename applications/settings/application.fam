@@ -6,5 +6,6 @@ App(
         "passport",
         "system_settings",
         "about",
+        "rgb_led_settings",
     ],
 )

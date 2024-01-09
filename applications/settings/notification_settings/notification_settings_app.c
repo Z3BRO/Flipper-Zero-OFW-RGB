@@ -127,6 +127,7 @@ const NotificationSequence apply_sequence = {
     NULL,
 };
 
+/*
 static void led_changed(VariableItem* item) {
     NotificationAppSettings* app = variable_item_get_context(item);
     uint8_t index = variable_item_get_current_value_index(item);
@@ -137,6 +138,7 @@ static void led_changed(VariableItem* item) {
     notification_internal_message(app->notification, &apply_sequence);
     notification_message(app->notification, &sequence_blink_white_100);
 }
+*/
 
 static void volume_changed(VariableItem* item) {
     NotificationAppSettings* app = variable_item_get_context(item);
@@ -194,12 +196,14 @@ static NotificationAppSettings* alloc_settings() {
     variable_item_set_current_value_index(item, value_index);
     variable_item_set_current_value_text(item, delay_text[value_index]);
 
+    /*
     item = variable_item_list_add(
         app->variable_item_list, "LED Brightness", BACKLIGHT_COUNT, led_changed, app);
     value_index = value_index_float(
         app->notification->settings.led_brightness, backlight_value, BACKLIGHT_COUNT);
     variable_item_set_current_value_index(item, value_index);
     variable_item_set_current_value_text(item, backlight_text[value_index]);
+*/
 
     if(furi_hal_rtc_is_flag_set(FuriHalRtcFlagStealthMode)) {
         item = variable_item_list_add(app->variable_item_list, "Volume", 1, NULL, app);

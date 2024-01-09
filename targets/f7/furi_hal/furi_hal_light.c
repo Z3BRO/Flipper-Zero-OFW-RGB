@@ -1,8 +1,10 @@
 #include <core/common_defines.h>
+#include <furi_hal.h>
 #include <furi_hal_resources.h>
 #include <furi_hal_light.h>
 #include <lp5562.h>
 #include <stdint.h>
+#include <applications/settings/notification_settings/rgb_backlight.h>
 
 #define LED_CURRENT_RED 50
 #define LED_CURRENT_GREEN 50
@@ -31,6 +33,35 @@ void furi_hal_light_init() {
 }
 
 void furi_hal_light_set(Light light, uint8_t value) {
+    if(light & LightBacklight) {
+        if(rgb_backlight_has_color()) {
+            FuriHalRtcBootMode bm = furi_hal_rtc_get_boot_mode();
+            if(bm != FuriHalRtcBootModeDfu) {
+                // Make sure the original backlight is off
+                furi_hal_i2c_acquire(&furi_hal_i2c_handle_power);
+                uint8_t prev =
+                    lp5562_get_channel_value(&furi_hal_i2c_handle_power, LP5562ChannelWhite);
+                if(prev != 0) {
+                    lp5562_execute_ramp(
+                        &furi_hal_i2c_handle_power,
+                        LP5562Engine1,
+                        LP5562ChannelWhite,
+                        prev,
+                        0,
+                        100);
+                }
+                furi_hal_i2c_release(&furi_hal_i2c_handle_power);
+            }
+
+            // RGB Backlight
+            rgb_backlight_update(value);
+
+            return;
+        } else {
+            rgb_backlight_update(value);
+        }
+    }
+
     furi_hal_i2c_acquire(&furi_hal_i2c_handle_power);
     if(light & LightRed) {
         lp5562_set_channel_value(&furi_hal_i2c_handle_power, LP5562ChannelRed, value);
@@ -41,7 +72,8 @@ void furi_hal_light_set(Light light, uint8_t value) {
     if(light & LightBlue) {
         lp5562_set_channel_value(&furi_hal_i2c_handle_power, LP5562ChannelBlue, value);
     }
-    if(light & LightBacklight) {
+    if(light & LightBacklight && !rgb_backlight_has_color()) {
+        // Original Backlight
         uint8_t prev = lp5562_get_channel_value(&furi_hal_i2c_handle_power, LP5562ChannelWhite);
         lp5562_execute_ramp(
             &furi_hal_i2c_handle_power, LP5562Engine1, LP5562ChannelWhite, prev, value, 100);
