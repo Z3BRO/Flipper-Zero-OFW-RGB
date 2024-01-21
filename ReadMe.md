@@ -2,14 +2,15 @@
     <source media="(prefers-color-scheme: dark)" srcset="/.github/assets/dark_theme_banner.png">
     <source media="(prefers-color-scheme: light)" srcset="/.github/assets/light_theme_banner.png">
     <img
-        alt="A pixel art of a Dophin with text: Flipper Zero Official Repo"
+        alt="A pixel art of a Dophin with text: Flipper Zero Unofficial Repo"
         src="/.github/assets/light_theme_banner.png">
 </picture>
 
-# Flipper Zero Firmware
+# Flipper Zero RGB Firmware
 
 - [Flipper Zero Official Website](https://flipperzero.one). A simple way to explain to your friends what Flipper Zero can do.
 - [Flipper Zero Firmware Update](https://update.flipperzero.one). Improvements for your dolphin: latest firmware releases, upgrade tools for PC and mobile devices.
+- [RGB Github Repo](https://github.com/Z3BRO/Flipper-Zero-RGB). All the information you could need about the Flipper Zero RGB mods.
 - [User Documentation](https://docs.flipperzero.one). Learn more about your dolphin: specs, usage guides, and anything you want to ask.
 
 # Contributing
