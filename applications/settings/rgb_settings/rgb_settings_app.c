@@ -12,6 +12,16 @@ typedef struct {
     VariableItemList* variable_item_list;
 } RgbSettingsApp;
 
+typedef struct {
+    bool led2_matches_led1;
+    bool led3_matches_led1;
+} RGBBacklightState;
+
+static RGBBacklightState rgb_state = {
+    .led2_matches_led1 = false,
+    .led3_matches_led1 = false,
+};
+
 #define BRIGHTNESS_COUNT 21
 static const char* const brightness_text[BRIGHTNESS_COUNT] = {
     "0%",  "5%",  "10%", "15%", "20%", "25%", "30%", "35%", "40%", "45%",  "50%",
@@ -21,16 +31,14 @@ static const float brightness_value[BRIGHTNESS_COUNT] = {
     0.00f, 0.05f, 0.10f, 0.15f, 0.20f, 0.25f, 0.30f, 0.35f, 0.40f, 0.45f, 0.50f,
     0.55f, 0.60f, 0.65f, 0.70f, 0.75f, 0.80f, 0.85f, 0.90f, 0.95f, 1.00f,
 };
-
-#define INTERNAL_MODE_COUNT 2
-static const char* const internal_mode_text[INTERNAL_MODE_COUNT] = {
-    "Auto",
-    "On",
+static const char* const internal_mode_text[InternalModeCount] = {
+    [InternalModeMatch] = "Auto",
+    [InternalModeOn] = "On",
 };
 
-static const uint32_t internal_mode_value[INTERNAL_MODE_COUNT] = {
-    RGB_BACKLIGHT_INTERNAL_MODE_AUTO,
-    RGB_BACKLIGHT_INTERNAL_MODE_ON,
+static const uint32_t internal_mode_value[InternalModeCount] = {
+    [InternalModeMatch] = InternalModeMatch,
+    [InternalModeOn] = InternalModeOn,
 };
 
 static void backlight_brightness_changed(VariableItem* item) {
@@ -44,24 +52,72 @@ static void backlight_brightness_changed(VariableItem* item) {
 static void internal_brightness_changed(VariableItem* item) {
     RgbSettingsApp* app = variable_item_get_context(item);
     uint8_t index = variable_item_get_current_value_index(item);
-    rgb_internal_set_brightness(255 * brightness_value[index]);
+    rgb_internal_set_brightness(brightness_value[index]);
     variable_item_set_current_value_text(item, brightness_text[index]);
     notification_message(app->notification, &sequence_display_backlight_on);
 }
 
-static void backlight_color_changed(VariableItem* item) {
+static void backlight_color_changed_1(VariableItem* item) {
     RgbSettingsApp* app = variable_item_get_context(item);
     uint8_t index = variable_item_get_current_value_index(item);
-    rgb_backlight_set_color(index);
-    variable_item_set_current_value_text(item, rgb_backlight_get_color_text(index));
+    uint8_t red, green, blue;
+    rgb_backlight_color_value(index, &red, &green, &blue);
+    rgb_backlight_led_set_color(0, red, green, blue);
+    if(rgb_state.led2_matches_led1) {
+        rgb_backlight_led_set_color(1, red, green, blue);
+    }
+    if(rgb_state.led3_matches_led1) {
+        rgb_backlight_led_set_color(2, red, green, blue);
+    }
+    variable_item_set_current_value_text(item, rgb_backlight_color_text(index));
     notification_message(app->notification, &sequence_display_backlight_on);
 }
 
-static void internal_color_changed(VariableItem* item) {
+static void backlight_color_changed_2(VariableItem* item) {
     RgbSettingsApp* app = variable_item_get_context(item);
     uint8_t index = variable_item_get_current_value_index(item);
-    rgb_internal_set_color(index);
-    variable_item_set_current_value_text(item, rgb_backlight_get_color_text(index));
+    uint8_t red, green, blue;
+    if(index-- == 0) {
+        rgb_backlight_led_get_color(0, &red, &green, &blue);
+        rgb_backlight_led_set_color(1, red, green, blue);
+        rgb_state.led2_matches_led1 = true;
+        variable_item_set_current_value_text(item, "RGB 1");
+        notification_message(app->notification, &sequence_display_backlight_on);
+        return;
+    }
+
+    rgb_backlight_color_value(index, &red, &green, &blue);
+    rgb_backlight_led_set_color(1, red, green, blue);
+    rgb_state.led2_matches_led1 = false;
+    variable_item_set_current_value_text(item, rgb_backlight_color_text(index));
+    notification_message(app->notification, &sequence_display_backlight_on);
+}
+
+static void backlight_color_changed_3(VariableItem* item) {
+    RgbSettingsApp* app = variable_item_get_context(item);
+    uint8_t index = variable_item_get_current_value_index(item);
+    uint8_t red, green, blue;
+    if(index-- == 0) {
+        rgb_backlight_led_get_color(0, &red, &green, &blue);
+        rgb_backlight_led_set_color(2, red, green, blue);
+        rgb_state.led3_matches_led1 = true;
+        variable_item_set_current_value_text(item, "RGB 1");
+        notification_message(app->notification, &sequence_display_backlight_on);
+        return;
+    }
+
+    rgb_backlight_color_value(index, &red, &green, &blue);
+    rgb_backlight_led_set_color(2, red, green, blue);
+    rgb_state.led3_matches_led1 = false;
+    variable_item_set_current_value_text(item, rgb_backlight_color_text(index));
+    notification_message(app->notification, &sequence_display_backlight_on);
+}
+
+static void internal_pattern_changed(VariableItem* item) {
+    RgbSettingsApp* app = variable_item_get_context(item);
+    uint8_t index = variable_item_get_current_value_index(item);
+    rgb_internal_set_pattern(index);
+    variable_item_set_current_value_text(item, rgb_internal_pattern_text(index));
     notification_message(app->notification, &sequence_display_backlight_on);
 }
 
@@ -106,16 +162,51 @@ static RgbSettingsApp* alloc_settings() {
 
     VariableItem* item;
     uint8_t value_index;
+    uint8_t value_index_rgb1;
 
     item = variable_item_list_add(
         app->variable_item_list,
-        "LCD Color",
-        rgb_backlight_get_color_count(),
-        backlight_color_changed,
+        "LCD RGB 1",
+        rgb_backlight_color_count(),
+        backlight_color_changed_1,
         app);
-    value_index = rgb_backlight_get_settings()->display_color_index;
+    value_index_rgb1 = rgb_backlight_find_index(0);
+    variable_item_set_current_value_index(item, value_index_rgb1);
+    variable_item_set_current_value_text(item, rgb_backlight_color_text(value_index_rgb1));
+
+    item = variable_item_list_add(
+        app->variable_item_list,
+        "LCD RGB 2",
+        rgb_backlight_color_count() + 1,
+        backlight_color_changed_2,
+        app);
+    value_index = rgb_backlight_find_index(1);
     variable_item_set_current_value_index(item, value_index);
-    variable_item_set_current_value_text(item, rgb_backlight_get_color_text(value_index));
+    if(value_index - 1 == value_index_rgb1) {
+        variable_item_set_current_value_index(item, 0);
+        variable_item_set_current_value_text(item, "RGB 1");
+        rgb_state.led2_matches_led1 = true;
+    } else {
+        variable_item_set_current_value_text(item, rgb_backlight_color_text(value_index - 1));
+        rgb_state.led2_matches_led1 = false;
+    }
+
+    item = variable_item_list_add(
+        app->variable_item_list,
+        "LCD RGB 3",
+        rgb_backlight_color_count() + 1,
+        backlight_color_changed_3,
+        app);
+    value_index = rgb_backlight_find_index(2);
+    variable_item_set_current_value_index(item, value_index);
+    if(value_index - 1 == value_index_rgb1) {
+        variable_item_set_current_value_index(item, 0);
+        variable_item_set_current_value_text(item, "RGB 1");
+        rgb_state.led3_matches_led1 = true;
+    } else {
+        variable_item_set_current_value_text(item, rgb_backlight_color_text(value_index - 1));
+        rgb_state.led3_matches_led1 = false;
+    }
 
     item = variable_item_list_add(
         app->variable_item_list,
@@ -130,13 +221,13 @@ static RgbSettingsApp* alloc_settings() {
 
     item = variable_item_list_add(
         app->variable_item_list,
-        "Internal Color",
-        rgb_backlight_get_color_count(),
-        internal_color_changed,
+        "Internal Pattern",
+        rgb_internal_pattern_count(),
+        internal_pattern_changed,
         app);
-    value_index = rgb_backlight_get_settings()->internal_color_index;
+    value_index = rgb_backlight_get_settings()->internal_pattern_index;
     variable_item_set_current_value_index(item, value_index);
-    variable_item_set_current_value_text(item, rgb_backlight_get_color_text(value_index));
+    variable_item_set_current_value_text(item, rgb_internal_pattern_text(value_index));
 
     item = variable_item_list_add(
         app->variable_item_list,
@@ -145,16 +236,14 @@ static RgbSettingsApp* alloc_settings() {
         internal_brightness_changed,
         app);
     value_index = value_index_float(
-        rgb_backlight_get_settings()->internal_brightness / 255.0f,
-        brightness_value,
-        BRIGHTNESS_COUNT);
+        rgb_backlight_get_settings()->internal_brightness, brightness_value, BRIGHTNESS_COUNT);
     variable_item_set_current_value_index(item, value_index);
     variable_item_set_current_value_text(item, brightness_text[value_index]);
 
     item = variable_item_list_add(
-        app->variable_item_list, "Internal Mode", INTERNAL_MODE_COUNT, internal_mode_changed, app);
+        app->variable_item_list, "Internal Mode", InternalModeCount, internal_mode_changed, app);
     value_index = value_index_uint32(
-        rgb_backlight_get_settings()->internal_mode, internal_mode_value, INTERNAL_MODE_COUNT);
+        rgb_backlight_get_settings()->internal_mode, internal_mode_value, InternalModeCount);
     variable_item_set_current_value_index(item, value_index);
     variable_item_set_current_value_text(item, internal_mode_text[value_index]);
 

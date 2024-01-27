@@ -34,7 +34,7 @@ void furi_hal_light_init() {
 
 void furi_hal_light_set(Light light, uint8_t value) {
     if(light & LightBacklight) {
-        if(rgb_backlight_has_color()) {
+        if(rgb_backlight_connected()) {
             FuriHalRtcBootMode bm = furi_hal_rtc_get_boot_mode();
             if(bm != FuriHalRtcBootModeDfu) {
                 // Make sure the original backlight is off
@@ -72,7 +72,7 @@ void furi_hal_light_set(Light light, uint8_t value) {
     if(light & LightBlue) {
         lp5562_set_channel_value(&furi_hal_i2c_handle_power, LP5562ChannelBlue, value);
     }
-    if(light & LightBacklight && !rgb_backlight_has_color()) {
+    if(light & LightBacklight && !rgb_backlight_connected()) {
         // Original Backlight
         uint8_t prev = lp5562_get_channel_value(&furi_hal_i2c_handle_power, LP5562ChannelWhite);
         lp5562_execute_ramp(

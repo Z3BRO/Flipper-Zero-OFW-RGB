@@ -1,6 +1,7 @@
 /*
     SK6805 FlipperZero driver
     Copyright (C) 2022-2023 Victor Nikitchuk (https://github.com/quen0n)
+    Modified 2023-2024 Derek Jamison (https://github.com/jamisonderek)
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -38,6 +39,7 @@
 #endif
 
 static const GpioPin led_pin = {.port = GPIOA, .pin = LL_GPIO_PIN_8}; // VIBRO
+//static const GpioPin led_pin = {.port = GPIOA, .pin = LL_GPIO_PIN_7}; // PA7 (Unmod-testing)
 static uint8_t led_buffer[SK6805_LED_COUNT][3];
 
 void SK6805_init(void) {
