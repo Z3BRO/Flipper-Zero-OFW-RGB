@@ -340,13 +340,14 @@ void rgb_backlight_update(uint8_t brightness) {
     // Don't update last internal data yet, we need it later.
 
     if(rgb_backlight_connected()) {
+        uint8_t led_index = SK6805_get_led_backlight_count() - 1;
         for(uint8_t i = 0; i < SK6805_get_led_backlight_count(); i++) {
             uint8_t red, green, blue;
             rgb_backlight_led_get_color(i, &red, &green, &blue);
             uint8_t r = red * (brightness / 255.0f);
             uint8_t g = green * (brightness / 255.0f);
             uint8_t b = blue * (brightness / 255.0f);
-            SK6805_set_led_color(i, r, g, b);
+            SK6805_set_led_color(led_index--, r, g, b);
             led_count++;
         }
     }
