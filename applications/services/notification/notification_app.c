@@ -164,7 +164,7 @@ static void notification_vibro_on(bool force) {
     }
 }
 
-static void notification_vibro_off() {
+static void notification_vibro_off(void) {
     furi_hal_vibro_on(false);
 }
 
@@ -176,7 +176,7 @@ static void notification_sound_on(float freq, float volume, bool force) {
     }
 }
 
-static void notification_sound_off() {
+static void notification_sound_off(void) {
     if(furi_hal_speaker_is_mine()) {
         furi_hal_speaker_stop();
         furi_hal_speaker_release();
@@ -514,7 +514,7 @@ static void input_event_callback(const void* value, void* context) {
 }
 
 // App alloc
-static NotificationApp* notification_app_alloc() {
+static NotificationApp* notification_app_alloc(void) {
     NotificationApp* app = malloc(sizeof(NotificationApp));
     app->queue = furi_message_queue_alloc(8, sizeof(NotificationAppMessage));
     app->display_timer = furi_timer_alloc(notification_display_timer, FuriTimerTypeOnce, app);
