@@ -189,7 +189,7 @@ uint8_t rgb_internal_led_get_count(void);
  * @return true If at least one RGB LED is set to a color.
  * @return false If no RGB LED are set to a color.
  */
-bool rgb_backlight_connected();
+bool rgb_backlight_connected(void);
 
 /**
  * @brief Updates the physical LEDs connected to the vibro pin.

@@ -211,7 +211,7 @@ void rgb_internal_set_mode(uint32_t mode) {
     rgb_settings.internal_mode = (InternalMode)mode;
 }
 
-bool rgb_backlight_connected() {
+bool rgb_backlight_connected(void) {
     for(int i = 0; i < LED_BACKLIGHT_COUNT; i++) {
         for(int rgb = 0; rgb < 3; rgb++) {
             if(rgb_settings.backlight_colors[i][rgb]) {
