@@ -22,7 +22,7 @@
 #include <furi_hal.h>
 #include <storage/storage.h>
 
-#define RGB_BACKLIGHT_SETTINGS_VERSION 6
+#define RGB_BACKLIGHT_SETTINGS_VERSION 7
 #define RGB_BACKLIGHT_SETTINGS_FILE_NAME ".rgb_backlight.settings"
 #define RGB_BACKLIGHT_SETTINGS_PATH EXT_PATH(RGB_BACKLIGHT_SETTINGS_FILE_NAME)
 #define TAG "RGB Backlight"
@@ -34,10 +34,11 @@ static RGBBacklightSettings rgb_settings = {
     .backlight_colors =
         {RGB_BACKLIGHT_DEFAULT_RGB, RGB_BACKLIGHT_DEFAULT_RGB, RGB_BACKLIGHT_DEFAULT_RGB},
     .backlight_mode = BacklightModeConstant,
-    .internal_pattern_index = 0, // Orange
+    .internal_pattern_index = 1, // Orange
     .internal_brightness = 0, // By default internal lights are off
     .internal_mode = InternalModeMatch,
     .settings_loaded = false,
+    .internal_color = {0, 0, 0},
 };
 
 void rgb_backlight_load_settings(void) {
@@ -169,10 +170,14 @@ uint8_t rgb_backlight_find_index(uint8_t led_number) {
         rgb_backlight_color_value(i, &r, &g, &b);
         // TODO: Scale RGB based on observed brightness?
         uint32_t d = (red - r) * (red - r) + (green - g) * (green - g) + (blue - b) * (blue - b);
-        if(d < distance) {
+        if(d <= distance) {
             nearest_index = i;
             distance = d;
         }
+    }
+
+    if(distance != 0) {
+        nearest_index = 0; // Custom.
     }
 
     // Slot 0 is reserved for "SAME AS RGB 1" choice for other LEDs.
@@ -199,8 +204,24 @@ void rgb_internal_set_pattern(uint8_t index_pattern) {
     rgb_settings.internal_pattern_index = index_pattern;
 }
 
+void rgb_internal_custom_get_color(uint8_t* red, uint8_t* green, uint8_t* blue) {
+    *red = rgb_settings.internal_color[0];
+    *green = rgb_settings.internal_color[1];
+    *blue = rgb_settings.internal_color[2];
+}
+
+void rgb_internal_custom_set_color(uint8_t red, uint8_t green, uint8_t blue) {
+    rgb_settings.internal_color[0] = red;
+    rgb_settings.internal_color[1] = green;
+    rgb_settings.internal_color[2] = blue;
+}
+
 void rgb_internal_set_brightness(float brightness) {
     rgb_settings.internal_brightness = brightness;
+}
+
+float rgb_internal_get_brightness() {
+    return rgb_settings.internal_brightness;
 }
 
 void rgb_internal_set_mode(uint32_t mode) {
@@ -228,6 +249,13 @@ static void rgb_internal_color(
     uint8_t* red,
     uint8_t* green,
     uint8_t* blue) {
+    if(index_pattern == 0) {
+        // Custom color
+        *red = rgb_settings.internal_color[0];
+        *green = rgb_settings.internal_color[1];
+        *blue = rgb_settings.internal_color[2];
+        return;
+    }
     if(index_pattern > COUNT_OF(internal_pattern)) {
         index_pattern = COUNT_OF(internal_pattern);
     }
@@ -309,12 +337,16 @@ void rgb_backlight_update(uint8_t brightness) {
     static uint32_t last_display_color[LED_BACKLIGHT_COUNT][3] = {0};
     static uint8_t last_display_brightness = 123;
     static uint8_t last_internal_pattern_index = 255;
+    static uint32_t last_internal_color[3] = {0};
     static float last_internal_brightness = 1.1f;
 
     uint8_t led_count = 0;
 
     if(last_display_brightness == brightness &&
        last_internal_pattern_index == rgb_settings.internal_pattern_index &&
+       last_internal_color[0] == rgb_settings.internal_color[0] &&
+       last_internal_color[1] == rgb_settings.internal_color[1] &&
+       last_internal_color[2] == rgb_settings.internal_color[2] &&
        fabsf(last_internal_brightness - rgb_settings.internal_brightness) < 0.02f) {
         bool same_color = true;
 
@@ -358,6 +390,9 @@ void rgb_backlight_update(uint8_t brightness) {
 
     if(rgb_settings.internal_mode == InternalModeOn &&
        (last_internal_pattern_index == rgb_settings.internal_pattern_index) &&
+       last_internal_color[0] == rgb_settings.internal_color[0] &&
+       last_internal_color[1] == rgb_settings.internal_color[1] &&
+       last_internal_color[2] == rgb_settings.internal_color[2] &&
        fabsf(last_internal_brightness - rgb_settings.internal_brightness) < 0.02f) {
         // Ignore
     } else {
@@ -380,6 +415,9 @@ void rgb_backlight_update(uint8_t brightness) {
 
     last_internal_pattern_index = rgb_settings.internal_pattern_index;
     last_internal_brightness = rgb_settings.internal_brightness;
+    last_internal_color[0] = rgb_settings.internal_color[0];
+    last_internal_color[1] = rgb_settings.internal_color[1];
+    last_internal_color[2] = rgb_settings.internal_color[2];
 
     SK6805_update(led_count);
 }

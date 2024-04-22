@@ -57,6 +57,7 @@ typedef struct {
     float internal_brightness; // Scale (0 to 1.0f)
     InternalMode internal_mode;
     bool settings_loaded;
+    uint8_t internal_color[3]; // RGB
 } RGBBacklightSettings;
 
 /**
@@ -158,11 +159,36 @@ const char* rgb_internal_pattern_text(uint8_t index_pattern);
 void rgb_internal_set_pattern(uint8_t index_pattern);
 
 /**
+ * @brief Gets the custom color for the internal LEDs.
+ * 
+ * @param red Storage for returning the red (0-255) value
+ * @param green Storage for returning the green (0-255) value
+ * @param blue Storage for returning the blue (0-255) value
+*/
+void rgb_internal_custom_get_color(uint8_t* red, uint8_t* green, uint8_t* blue);
+
+/**
+ * @brief Sets the custom color for the internal LEDs.
+ * 
+ * @param red 0-255 red value
+ * @param green 0-255 green value
+ * @param blue 0-255 blue value
+ */
+void rgb_internal_custom_set_color(uint8_t red, uint8_t green, uint8_t blue);
+
+/**
  * @brief Sets the brightness for the internal LEDs.
  * 
  * @param brightness The scale factor (0 to 1.0f)
  */
 void rgb_internal_set_brightness(float brightness);
+
+/**
+ * @brief Gets the brightness for the internal LEDs.
+ * 
+ * @return float The scale factor (0 to 1.0f)
+ */
+float rgb_internal_get_brightness(void);
 
 /**
  * @brief Sets the mode for the internal LEDs.

@@ -2,6 +2,7 @@
 #include "rgb_backlight.h"
 
 enum ColorName {
+    ColorNameCustom,
     ColorNameOrange,
     ColorNameYellow,
     ColorNameSpring,
@@ -20,6 +21,7 @@ enum ColorName {
 };
 
 static const RGBColor rgb_colors[ColorCount] = {
+    [ColorNameCustom] = {"Custom", .red = 255, .green = 79, .blue = 0},
     [ColorNameOrange] = {"Orange", .red = 255, .green = 79, .blue = 0},
     [ColorNameYellow] = {"Yellow", .red = 255, .green = 170, .blue = 0},
     [ColorNameSpring] = {"Spring", .red = 167, .green = 255, .blue = 0},
@@ -37,6 +39,7 @@ static const RGBColor rgb_colors[ColorCount] = {
 };
 
 static const InternalPattern internal_pattern[] = {
+    {"Custom", .length = 1, {ColorNameCustom}},
     {"Orange", .length = 1, {ColorNameOrange}},
     {"Yellow", .length = 1, {ColorNameYellow}},
     {"Spring", .length = 1, {ColorNameSpring}},
