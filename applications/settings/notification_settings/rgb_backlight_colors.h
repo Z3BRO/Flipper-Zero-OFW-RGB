@@ -40,6 +40,8 @@ static const RGBColor rgb_colors[ColorCount] = {
 
 static const InternalPattern internal_pattern[] = {
     {"Custom", .length = 1, {ColorNameCustom}},
+    {"Slide", .length = 2, {ColorNameCustom, ColorNameCustom}},
+    {"Rainbow", .length = 3, {ColorNameCustom, ColorNameCustom, ColorNameCustom}},
     {"Orange", .length = 1, {ColorNameOrange}},
     {"Yellow", .length = 1, {ColorNameYellow}},
     {"Spring", .length = 1, {ColorNameSpring}},

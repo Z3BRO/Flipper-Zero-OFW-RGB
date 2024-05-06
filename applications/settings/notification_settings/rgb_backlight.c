@@ -29,17 +29,64 @@
 #define RGB_BACKLIGHT_DEFAULT_RGB \
     { 255, 79, 0 } /* Orange */
 
+// Pin mapping for backlight to virtual LED (TimedSignal & TimedRainbow modes)
+#define RGB_BACKLIGHT_RAINBOW_S0 4
+#define RGB_BACKLIGHT_RAINBOW_R0 2
+#define RGB_BACKLIGHT_RAINBOW_R1 4
+#define RGB_BACKLIGHT_RAINBOW_R2 6
+
+// Comment the next line when using real hardware:
+// #define USE_DEBUG_LED_STRIP 1
+
 static RGBBacklightSettings rgb_settings = {
     .version = RGB_BACKLIGHT_SETTINGS_VERSION,
     .backlight_colors =
         {RGB_BACKLIGHT_DEFAULT_RGB, RGB_BACKLIGHT_DEFAULT_RGB, RGB_BACKLIGHT_DEFAULT_RGB},
     .backlight_mode = BacklightModeConstant,
-    .internal_pattern_index = 1, // Orange
-    .internal_brightness = 0, // By default internal lights are off
+    .internal_pattern_index = 2, // Rainbow
+    .internal_brightness = 0.05f,
     .internal_mode = InternalModeMatch,
     .settings_loaded = false,
     .internal_color = {0, 0, 0},
+    .rainbow_width = 270, // degrees Hue
+    .rainbow_update_time = 250, // ms update delay
+    .rainbow_spin_increment = 10, // degrees Hue increment
 };
+
+typedef struct {
+    FuriTimer* timer;
+    uint8_t last_display_brightness;
+    int16_t offset;
+} RGBBacklightState;
+
+static RGBBacklightState rgb_state = {
+    .last_display_brightness = 123,
+    .offset = 80,
+    .timer = NULL,
+};
+
+void rgb_backlight_timer_callback(void* context) {
+    UNUSED(context);
+    if(!rgb_settings.settings_loaded) {
+        return;
+    }
+
+    if(rgb_settings.backlight_mode == BacklightModeConstant &&
+       rgb_settings.internal_pattern_index != 1 && rgb_settings.internal_pattern_index != 2) {
+        return;
+    }
+
+    if(rgb_settings.rainbow_update_time) {
+        rgb_state.offset += rgb_settings.rainbow_spin_increment;
+        if(rgb_state.offset >= 360) {
+            rgb_state.offset -= 360;
+        } else if(rgb_state.offset < 0) {
+            rgb_state.offset += 360;
+        }
+    }
+
+    rgb_backlight_update(rgb_state.last_display_brightness);
+}
 
 void rgb_backlight_load_settings(void) {
     FuriHalRtcBootMode bm = furi_hal_rtc_get_boot_mode();
@@ -88,6 +135,14 @@ void rgb_backlight_load_settings(void) {
     storage_file_free(file);
     furi_record_close(RECORD_STORAGE);
     rgb_settings.settings_loaded = true;
+
+    if(bm == FuriHalRtcBootModeNormal && rgb_settings.rainbow_update_time) {
+        if(rgb_state.timer == NULL) {
+            rgb_state.timer =
+                furi_timer_alloc(rgb_backlight_timer_callback, FuriTimerTypePeriodic, NULL);
+            furi_timer_start(rgb_state.timer, rgb_settings.rainbow_update_time);
+        }
+    }
 };
 
 void rgb_backlight_save_settings(void) {
@@ -186,6 +241,47 @@ uint8_t rgb_backlight_find_index(uint8_t led_number) {
     }
 
     return nearest_index;
+}
+
+BacklightMode rgb_backlight_get_mode(void) {
+    return rgb_settings.backlight_mode;
+}
+
+void rgb_backlight_set_mode(BacklightMode mode) {
+    rgb_settings.backlight_mode = mode;
+}
+
+void rgb_rainbow_set_width(uint16_t width) {
+    rgb_settings.rainbow_width = width;
+}
+
+uint16_t rgb_rainbow_get_width(void) {
+    return rgb_settings.rainbow_width;
+}
+
+int8_t rgb_rainbow_get_spin(void) {
+    return rgb_settings.rainbow_spin_increment;
+}
+
+void rgb_rainbow_set_spin(int8_t width) {
+    rgb_settings.rainbow_spin_increment = width;
+}
+
+uint16_t rgb_rainbow_get_update_time(void) {
+    return rgb_settings.rainbow_update_time;
+}
+
+void rgb_rainbow_set_update_time(uint16_t width) {
+    rgb_settings.rainbow_update_time = width;
+
+    FuriHalRtcBootMode bm = furi_hal_rtc_get_boot_mode();
+    if(bm == FuriHalRtcBootModeNormal && rgb_settings.rainbow_update_time) {
+        if(rgb_state.timer == NULL) {
+            rgb_state.timer =
+                furi_timer_alloc(rgb_backlight_timer_callback, FuriTimerTypePeriodic, NULL);
+        }
+        furi_timer_restart(rgb_state.timer, rgb_settings.rainbow_update_time);
+    }
 }
 
 uint8_t rgb_internal_pattern_count(void) {
@@ -329,20 +425,42 @@ static uint8_t mapped_internal_led(uint8_t led_number) {
     return mapped_index;
 }
 
+// hue=0..359.     n=5 (red), n=3 (green), n=1 (blue)
+static uint8_t rainbow(uint16_t hue, uint8_t n) {
+    hue = hue % 360;
+    float v1 = hue / 60.0f;
+    v1 += n;
+    while(v1 >= 6.0f) {
+        v1 -= 6.0f;
+    }
+    if((4 - v1) < v1) {
+        v1 = 4 - v1;
+    }
+    if(v1 > 1) {
+        v1 = 1;
+    }
+    if(v1 < 0) {
+        v1 = 0;
+    }
+
+    float s = 0.9;
+    float b = 255.0;
+    return b * (1 - s * v1);
+}
+
 void rgb_backlight_update(uint8_t brightness) {
     if(!rgb_settings.settings_loaded) {
         rgb_backlight_load_settings();
     }
 
     static uint32_t last_display_color[LED_BACKLIGHT_COUNT][3] = {0};
-    static uint8_t last_display_brightness = 123;
     static uint8_t last_internal_pattern_index = 255;
     static uint32_t last_internal_color[3] = {0};
     static float last_internal_brightness = 1.1f;
 
     uint8_t led_count = 0;
 
-    if(last_display_brightness == brightness &&
+    if(rgb_state.last_display_brightness == brightness &&
        last_internal_pattern_index == rgb_settings.internal_pattern_index &&
        last_internal_color[0] == rgb_settings.internal_color[0] &&
        last_internal_color[1] == rgb_settings.internal_color[1] &&
@@ -358,12 +476,12 @@ void rgb_backlight_update(uint8_t brightness) {
             }
         }
 
-        if(same_color) {
+        if(same_color && rgb_settings.rainbow_width == 0) {
             return;
         }
     }
 
-    last_display_brightness = brightness;
+    rgb_state.last_display_brightness = brightness;
     for(int i = 0; i < LED_BACKLIGHT_COUNT; i++) {
         for(int rgb = 0; rgb < 3; rgb++) {
             last_display_color[i][rgb] = rgb_settings.backlight_colors[i][rgb];
@@ -376,6 +494,23 @@ void rgb_backlight_update(uint8_t brightness) {
         for(uint8_t i = 0; i < SK6805_get_led_backlight_count(); i++) {
             uint8_t red, green, blue;
             rgb_backlight_led_get_color(i, &red, &green, &blue);
+
+            if(rgb_settings.backlight_mode != BacklightModeConstant) {
+                uint8_t mapped_index = 0;
+                if(rgb_settings.backlight_mode == BacklightModeTimedSingle) {
+                    mapped_index = RGB_BACKLIGHT_RAINBOW_S0;
+                } else if(rgb_settings.backlight_mode == BacklightModeTimedRainbow) {
+                    mapped_index = (i == 0) ? RGB_BACKLIGHT_RAINBOW_R0 :
+                                   (i == 1) ? RGB_BACKLIGHT_RAINBOW_R1 :
+                                              RGB_BACKLIGHT_RAINBOW_R2;
+                }
+
+                uint8_t mult = rgb_settings.rainbow_width ? rgb_settings.rainbow_width / 8 : 0;
+                red = rainbow(rgb_state.offset + (mapped_index * mult), 5);
+                green = rainbow(rgb_state.offset + (mapped_index * mult), 3);
+                blue = rainbow(rgb_state.offset + (mapped_index * mult), 1);
+            }
+
             uint8_t r = red * (brightness / 255.0f);
             uint8_t g = green * (brightness / 255.0f);
             uint8_t b = blue * (brightness / 255.0f);
@@ -388,7 +523,7 @@ void rgb_backlight_update(uint8_t brightness) {
         rgb_backlight_connected() ? SK6805_get_led_backlight_count() : 0;
     float internal_brightness = rgb_settings.internal_brightness;
 
-    if(rgb_settings.internal_mode == InternalModeOn &&
+    if(rgb_settings.rainbow_width == 0 && rgb_settings.internal_mode == InternalModeOn &&
        (last_internal_pattern_index == rgb_settings.internal_pattern_index) &&
        last_internal_color[0] == rgb_settings.internal_color[0] &&
        last_internal_color[1] == rgb_settings.internal_color[1] &&
@@ -401,10 +536,35 @@ void rgb_backlight_update(uint8_t brightness) {
         }
 
         uint8_t color_index = rgb_settings.internal_pattern_index;
+        uint8_t mult = rgb_settings.rainbow_width / 8;
+
         for(uint8_t i = 0; i < SK6805_get_led_internal_count(); i++) {
             uint8_t red, green, blue;
             uint8_t mapped_index = mapped_internal_led(i);
             rgb_internal_color(mapped_index, color_index, &red, &green, &blue);
+
+#ifdef USE_DEBUG_LED_STRIP
+            mapped_index = i;
+#endif
+
+            if(color_index == 1) {
+                red = rainbow(rgb_state.offset + (RGB_BACKLIGHT_RAINBOW_S0 * mult), 5);
+                green = rainbow(rgb_state.offset + (RGB_BACKLIGHT_RAINBOW_S0 * mult), 3);
+                blue = rainbow(rgb_state.offset + (RGB_BACKLIGHT_RAINBOW_S0 * mult), 1);
+            } else if(color_index == 2) {
+                red = rainbow(rgb_state.offset + (mapped_index * mult), 5);
+                green = rainbow(rgb_state.offset + (mapped_index * mult), 3);
+                blue = rainbow(rgb_state.offset + (mapped_index * mult), 1);
+            }
+
+#ifdef USE_DEBUG_LED_STRIP
+            if(mapped_index >= 8) {
+                red = 0;
+                green = 0;
+                blue = 0;
+            }
+#endif
+
             uint8_t r = red * internal_brightness;
             uint8_t g = green * internal_brightness;
             uint8_t b = blue * internal_brightness;

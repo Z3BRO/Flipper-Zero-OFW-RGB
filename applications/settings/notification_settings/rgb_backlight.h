@@ -41,6 +41,9 @@ typedef struct {
 
 typedef enum {
     BacklightModeConstant,
+    BacklightModeTimedSingle,
+    BacklightModeTimedRainbow,
+    BacklightModeCount, // Must be last item.  This is the total number of modes.
 } BacklightMode;
 
 typedef enum {
@@ -58,6 +61,9 @@ typedef struct {
     InternalMode internal_mode;
     bool settings_loaded;
     uint8_t internal_color[3]; // RGB
+    uint16_t rainbow_width; // 0 - 359 degrees Hue  (0 for off)
+    int8_t rainbow_spin_increment; // degrees hue increment
+    uint16_t rainbow_update_time; // ms update delay (0 for off)
 } RGBBacklightSettings;
 
 /**
@@ -135,6 +141,18 @@ void rgb_backlight_led_get_color(uint8_t led_number, uint8_t* red, uint8_t* gree
  * @return uint8_t The index of the rgb backlight color
  */
 uint8_t rgb_backlight_find_index(uint8_t led_number);
+
+BacklightMode rgb_backlight_get_mode(void);
+void rgb_backlight_set_mode(BacklightMode);
+
+uint16_t rgb_rainbow_get_width(void);
+void rgb_rainbow_set_width(uint16_t width);
+
+int8_t rgb_rainbow_get_spin(void);
+void rgb_rainbow_set_spin(int8_t width);
+
+uint16_t rgb_rainbow_get_update_time(void);
+void rgb_rainbow_set_update_time(uint16_t width);
 
 /**
  * @brief Returns the number of patterns available to set the LED to.
