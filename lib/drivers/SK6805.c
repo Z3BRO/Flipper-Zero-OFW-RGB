@@ -116,7 +116,7 @@ void SK6805_update(uint8_t led_count) {
     SK6805_internal_update(led_count);
     end = DWT->CYCCNT - end;
 
-    FURI_LOG_D("SK6805", "Update time: %ld   Led count: %d", end, led_count);
+    // FURI_LOG_D("SK6805", "Update time: %ld   Led count: %d", end, led_count);
 
     furi_kernel_unlock();
 }
