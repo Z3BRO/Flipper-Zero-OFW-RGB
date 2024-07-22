@@ -91,6 +91,13 @@ static const uint32_t internal_mode_value[InternalModeCount] = {
     [InternalModeOn] = InternalModeOn,
 };
 
+#define HARDWARE_VERSION_COUNT 2
+static const char* const hardware_version_text[HARDWARE_VERSION_COUNT] = {
+    "v1",
+    "v2",
+};
+static const uint8_t hardware_version_value[HARDWARE_VERSION_COUNT] = {1, 2};
+
 static void backlight_brightness_changed(VariableItem* item) {
     RgbSettingsApp* app = variable_item_get_context(item);
     uint8_t index = variable_item_get_current_value_index(item);
@@ -209,6 +216,14 @@ static void internal_mode_changed(VariableItem* item) {
     uint8_t index = variable_item_get_current_value_index(item);
     rgb_internal_set_mode(internal_mode_value[index]);
     variable_item_set_current_value_text(item, internal_mode_text[index]);
+    notification_message(app->notification, &sequence_display_backlight_on);
+}
+
+static void hardware_version_changed(VariableItem* item) {
+    RgbSettingsApp* app = variable_item_get_context(item);
+    uint8_t index = variable_item_get_current_value_index(item);
+    rgb_internal_set_hardware_version(hardware_version_value[index]);
+    variable_item_set_current_value_text(item, hardware_version_text[index]);
     notification_message(app->notification, &sequence_display_backlight_on);
 }
 
@@ -449,6 +464,22 @@ static RgbSettingsApp* alloc_settings() {
         app->notification->settings.led_brightness, brightness_value, BRIGHTNESS_COUNT);
     variable_item_set_current_value_index(item, value_index);
     variable_item_set_current_value_text(item, brightness_text[value_index]);
+
+    item = variable_item_list_add(
+        app->variable_item_list,
+        "Hardware Ver",
+        HARDWARE_VERSION_COUNT,
+        hardware_version_changed,
+        app);
+    value_index = 0;
+    for(uint8_t i = 0; i < HARDWARE_VERSION_COUNT; i++) {
+        if(hardware_version_value[i] == rgb_backlight_get_settings()->hardware_version) {
+            value_index = i;
+            break;
+        }
+    }
+    variable_item_set_current_value_index(item, value_index);
+    variable_item_set_current_value_text(item, hardware_version_text[value_index]);
 
     app->view_dispatcher = view_dispatcher_alloc();
     view_dispatcher_enable_queue(app->view_dispatcher);

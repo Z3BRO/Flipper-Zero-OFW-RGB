@@ -22,12 +22,11 @@
 #include <furi_hal.h>
 #include <storage/storage.h>
 
-#define RGB_BACKLIGHT_SETTINGS_VERSION 7
+#define RGB_BACKLIGHT_SETTINGS_VERSION   7
 #define RGB_BACKLIGHT_SETTINGS_FILE_NAME ".rgb_backlight.settings"
-#define RGB_BACKLIGHT_SETTINGS_PATH EXT_PATH(RGB_BACKLIGHT_SETTINGS_FILE_NAME)
-#define TAG "RGB Backlight"
-#define RGB_BACKLIGHT_DEFAULT_RGB \
-    { 255, 79, 0 } /* Orange */
+#define RGB_BACKLIGHT_SETTINGS_PATH      EXT_PATH(RGB_BACKLIGHT_SETTINGS_FILE_NAME)
+#define TAG                              "RGB Backlight"
+#define RGB_BACKLIGHT_DEFAULT_RGB        {255, 79, 0} /* Orange */
 
 // Pin mapping for backlight to virtual LED (TimedSignal & TimedRainbow modes)
 #define RGB_BACKLIGHT_RAINBOW_S0 4
@@ -51,6 +50,7 @@ static RGBBacklightSettings rgb_settings = {
     .rainbow_width = 270, // degrees Hue
     .rainbow_update_time = 250, // ms update delay
     .rainbow_spin_increment = 10, // degrees Hue increment
+    .hardware_version = 1, // Version 1 (initial release of hardware)
 };
 
 typedef struct {
@@ -108,7 +108,9 @@ void rgb_backlight_load_settings(void) {
     if(fs_result) {
         bytes_count = storage_file_read(file, &settings, settings_size);
 
-        if(bytes_count != settings_size) {
+        if(bytes_count == sizeof(RGBBacklightSettingsOriginal)) {
+            settings.hardware_version = 1; // Version 1
+        } else if(bytes_count != settings_size) {
             fs_result = false;
         }
     }
@@ -143,7 +145,7 @@ void rgb_backlight_load_settings(void) {
             furi_timer_start(rgb_state.timer, rgb_settings.rainbow_update_time);
         }
     }
-};
+}
 
 void rgb_backlight_save_settings(void) {
     RGBBacklightSettings settings;
@@ -177,7 +179,7 @@ void rgb_backlight_save_settings(void) {
     storage_file_close(file);
     storage_file_free(file);
     furi_record_close(RECORD_STORAGE);
-};
+}
 
 RGBBacklightSettings* rgb_backlight_get_settings(void) {
     if(!rgb_settings.settings_loaded) {
@@ -365,6 +367,18 @@ static void rgb_internal_color(
     *blue = rgb_colors[color_index].blue;
 }
 
+void rgb_internal_set_hardware_version(uint8_t version) {
+    rgb_settings.hardware_version = version;
+}
+
+uint8_t rgb_internal_get_hardware_version(void) {
+    return rgb_settings.hardware_version;
+}
+
+// Map phyiscal LEDs (0..11) to logical LEDs (0..7)
+uint8_t led_mapping_v1[] = {0, 2, 3, 4, 1, 3, 4, 5, 6, 7, 5, 6};
+uint8_t led_mapping_v2[] = {0, 3, 1, 3, 4, 5, 6, 7, 5, 6};
+
 /**
  * @brief Converts a physical internal LED number into a logical index.
  * 
@@ -375,51 +389,21 @@ static void rgb_internal_color(
  * 
  * @attention This mapping may change after user testing.
  * 
+ * @param hardware_version Hardware version number.
  * @param led_number Physical internal LED number (0..11)
  * @return uint8_t Logical index.
  */
-static uint8_t mapped_internal_led(uint8_t led_number) {
+static uint8_t mapped_internal_led(uint8_t hardware_version, uint8_t led_number) {
     uint8_t mapped_index = 0;
-    switch(++led_number) {
-    case 1:
-        mapped_index = 0;
-        break;
-    case 2:
-        mapped_index = 2;
-        break;
-    case 3:
-        mapped_index = 3;
-        break;
-    case 4:
-        mapped_index = 4;
-        break;
-    case 5:
-        mapped_index = 1;
-        break;
-    case 6:
-        mapped_index = 3;
-        break;
-    case 7:
-        mapped_index = 4;
-        break;
-    case 8:
-        mapped_index = 5;
-        break;
-    case 9:
-        mapped_index = 6;
-        break;
-    case 10:
-        mapped_index = 7;
-        break;
-    case 11:
-        mapped_index = 5;
-        break;
-    case 12:
-        mapped_index = 6;
-        break;
-    default:
-        mapped_index = 0;
-        break;
+
+    if(hardware_version == 2) {
+        if(led_number < COUNT_OF(led_mapping_v2)) {
+            mapped_index = led_mapping_v2[led_number];
+        }
+    } else {
+        if(led_number < COUNT_OF(led_mapping_v1)) {
+            mapped_index = led_mapping_v1[led_number];
+        }
     }
 
     return mapped_index;
@@ -540,7 +524,7 @@ void rgb_backlight_update(uint8_t brightness) {
 
         for(uint8_t i = 0; i < SK6805_get_led_internal_count(); i++) {
             uint8_t red, green, blue;
-            uint8_t mapped_index = mapped_internal_led(i);
+            uint8_t mapped_index = mapped_internal_led(rgb_settings.hardware_version, i);
             rgb_internal_color(mapped_index, color_index, &red, &green, &blue);
 
 #ifdef USE_DEBUG_LED_STRIP

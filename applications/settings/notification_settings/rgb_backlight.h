@@ -23,8 +23,8 @@
 #include "SK6805.h"
 
 #define LED_BACKLIGHT_COUNT 3
-#define LED_INTERNAL_COUNT 12
-#define LED_COUNT (LED_BACKLIGHT_COUNT + LED_INTERNAL_COUNT)
+#define LED_INTERNAL_COUNT  12
+#define LED_COUNT           (LED_BACKLIGHT_COUNT + LED_INTERNAL_COUNT)
 
 typedef struct {
     char* name;
@@ -64,7 +64,22 @@ typedef struct {
     uint16_t rainbow_width; // 0 - 359 degrees Hue  (0 for off)
     int8_t rainbow_spin_increment; // degrees hue increment
     uint16_t rainbow_update_time; // ms update delay (0 for off)
+    uint8_t hardware_version; // 1 = original, 2 = July 2024
 } RGBBacklightSettings;
+
+typedef struct {
+    uint8_t version;
+    uint8_t backlight_colors[LED_BACKLIGHT_COUNT][3]; // RGB
+    BacklightMode backlight_mode;
+    uint8_t internal_pattern_index;
+    float internal_brightness; // Scale (0 to 1.0f)
+    InternalMode internal_mode;
+    bool settings_loaded;
+    uint8_t internal_color[3]; // RGB
+    uint16_t rainbow_width; // 0 - 359 degrees Hue  (0 for off)
+    int8_t rainbow_spin_increment; // degrees hue increment
+    uint16_t rainbow_update_time; // ms update delay (0 for off)
+} RGBBacklightSettingsOriginal;
 
 /**
  * @brief Loads the .rgb_backlight.settings file
@@ -241,3 +256,17 @@ bool rgb_backlight_connected(void);
  * @param brightness The brightness (0=OFF, 255=MAX)
  */
 void rgb_backlight_update(uint8_t brightness);
+
+/**
+ * @brief Sets the hardware version of the RGB Backlight.
+ * 
+ * @param version The hardware version.
+ */
+void rgb_internal_set_hardware_version(uint8_t version);
+
+/**
+ * @brief Gets the hardware version of the RGB Backlight.
+ * 
+ * @return uint8_t The hardware version.
+ */
+uint8_t rgb_internal_get_hardware_version(void);
